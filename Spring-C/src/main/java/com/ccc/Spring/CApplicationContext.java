@@ -4,6 +4,7 @@ package com.ccc.Spring;
 import java.io.File;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +37,16 @@ public class CApplicationContext {
         Class aClass = beanDefinition.getaClass();
         try {
             Object bean = aClass.newInstance();
+            //实现依赖注入
+            for (Field declaredField:aClass.getDeclaredFields()
+                 ) {
+                if (declaredField.isAnnotationPresent(Autowired.class)){
+                    Object field = getBean(declaredField.getName());
+                    declaredField.setAccessible(true);
+                    declaredField.set(bean,field);
+                }
+                
+            }
             return bean;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
