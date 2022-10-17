@@ -27,13 +27,13 @@ public class CApplicationContext {
             String beanName = entry.getKey();
             BeanDefinition beanDefinition = entry.getValue();
             if (beanDefinition.getScope().equals("singleton")){
-                Object bean=createBean(beanDefinition);
+                Object bean=createBean(beanDefinition,beanName);
                 singletonObjectPool.put(beanName,bean);
             }
         }
     }
 
-    private Object createBean(BeanDefinition beanDefinition) {
+    private Object createBean(BeanDefinition beanDefinition,String beanName) {
         Class aClass = beanDefinition.getaClass();
         try {
             Object bean = aClass.newInstance();
@@ -47,6 +47,24 @@ public class CApplicationContext {
                 }
                 
             }
+            //Aware回调
+            if (bean instanceof BeanNameAware){
+                BeanNameAware bean1 = (BeanNameAware) bean;
+                bean1.setBeanName(beanName);
+
+            }
+            //初始化
+            if (bean instanceof InitializiBean){
+                InitializiBean bean1 = (InitializiBean) bean;
+                try {
+                    bean1.afterPropertiesSet();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+            }
+
+
             return bean;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
@@ -120,7 +138,7 @@ public class CApplicationContext {
                 return Bean;
             }
             else {
-                Object bean = createBean(beanDefinition);
+                Object bean = createBean(beanDefinition,BeanName);
                 return bean;
             }
         }else {
