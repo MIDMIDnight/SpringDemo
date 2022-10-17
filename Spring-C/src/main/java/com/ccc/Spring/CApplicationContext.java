@@ -5,7 +5,10 @@ import java.io.File;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,6 +17,7 @@ public class CApplicationContext {
     private Class Config;
     private ConcurrentHashMap<String,Object> singletonObjectPool=new ConcurrentHashMap<>();
     private ConcurrentHashMap<String,BeanDefinition> beanDefinitionConcurrentHashMap=new ConcurrentHashMap<>();
+    private List<BeanPostProcessor> beanPostProcessorsList=new ArrayList<>();
 
     public CApplicationContext(Class config) {
         Config = config;
@@ -45,14 +49,27 @@ public class CApplicationContext {
                     declaredField.setAccessible(true);
                     declaredField.set(bean,field);
                 }
-                
+
+
+
             }
             //Aware回调
             if (bean instanceof BeanNameAware){
-                BeanNameAware bean1 = (BeanNameAware) bean;
-                bean1.setBeanName(beanName);
+                ((BeanNameAware) bean).setBeanName(beanName);
+
 
             }
+
+
+            for (BeanPostProcessor beanPostPro:beanPostProcessorsList
+                 ) {
+                bean = beanPostPro.postProcessAfterIinitialization(bean, beanName);
+            }
+
+
+
+
+
             //初始化
             if (bean instanceof InitializiBean){
                 InitializiBean bean1 = (InitializiBean) bean;
@@ -62,6 +79,12 @@ public class CApplicationContext {
                     throw new RuntimeException(e);
                 }
 
+            }
+
+
+            for (BeanPostProcessor beanPostPro:beanPostProcessorsList
+            ) {
+                bean = beanPostPro.postProcessAfterIinitialization(bean, beanName);
             }
 
 
@@ -107,6 +130,12 @@ public class CApplicationContext {
                     //首先判断当前类是否有Component注解,然后判断当前Bean是否有Scope注解，判断一下作用域的范围，是否单例
                     if (clazz.isAnnotationPresent(Component.class)) {
 
+                        //BeanPostProcessor
+                        if (BeanPostProcessor.class.isAssignableFrom(clazz)){
+                            BeanPostProcessor beanPostProcessor = (BeanPostProcessor)clazz.getDeclaredConstructor().newInstance();
+                            beanPostProcessorsList.add(beanPostProcessor);
+                        }
+
                         Component componentAnnotation = clazz.getDeclaredAnnotation(Component.class);
                         String beanName = componentAnnotation.value();
                         if (clazz.isAnnotationPresent(Scope.class)) {
@@ -119,6 +148,14 @@ public class CApplicationContext {
                         beanDefinitionConcurrentHashMap.put(beanName,beanDefinition);
                     }
                 } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (InvocationTargetException e) {
+                    throw new RuntimeException(e);
+                } catch (InstantiationException e) {
+                    throw new RuntimeException(e);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                } catch (NoSuchMethodException e) {
                     throw new RuntimeException(e);
                 }
 
